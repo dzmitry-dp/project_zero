@@ -1,6 +1,3 @@
 .git/*
-<<<<<<< HEAD
-__pycache__/
-=======
+.gitignore
 */__pycache__/*
->>>>>>> func
