@@ -1,5 +1,3 @@
-# The algorithm of the module_0 author.
-
 import numpy as np
 
 
@@ -36,5 +34,5 @@ def score_game(game_core):
     for number in random_array:
         count_ls.append(game_core(number))
     score = int(np.mean(count_ls))
-    print(f"Ваш алгоритм угадывает число в среднем за {score} попыток")
+    print(f"Этот алгоритм угадывает число в среднем за {score} попытки")
     return(score)
