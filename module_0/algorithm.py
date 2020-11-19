@@ -1,13 +1,19 @@
-from project_0 import score_game
+from example import *
 
 
-def text_writer(func):
+def write_wrapper(func):
+    '''Оборачиваю результат моей работы'''
     def wrapper(self):
-        with open('readme.txt') as file:
-            sentences = [x for x in file]
-            print(sentences[-2], end='')
+        with open('readme.md') as file:
+            print('\n')
+            print('Проект 0 состоит из:')
+            sentences = [sentence.rstrip() for sentence in file]
+            for s in sentences:
+                if 'example.py' in s or 'algorithm.py' in s:
+                    print(s)
+            func(self)
+            print('\n')
             print(sentences[-1])
-        func(self)
     return wrapper
 
 
@@ -17,7 +23,7 @@ class GuessingGame:
         то алгоритм будет работать в границах диапазона от 0 до 101'''
         self._border = (0, 101,)
     
-    def game_core(self, number):
+    def game_core_v3(self, number):
         '''Постоянно делим пополам диапазон вариантов искомых чисел.
         Устанавливаем новые границы поиска "загаданного" числа '''
         count = 0
@@ -34,7 +40,13 @@ class GuessingGame:
                 predict -= (predict - min_border)//2
         return (count)
 
-    @text_writer
-    def get_score(self):
+    def get_score_v1(self):
         '''Узнаем, как быстро алгоритм угадывает число'''
-        score_game(self.game_core)
+        score_game(game_core_v1)
+
+    def get_score_v2(self):
+        score_game(game_core_v2)
+
+    @write_wrapper
+    def get_score_v3(self):
+        score_game(self.game_core_v3)
