@@ -18,12 +18,15 @@ def choose_interaction_options():
         try_again()
 
 def print_examples_algorithm(alg_number):
-    alg_number = int(alg_number.strip('.'))
-    if alg_number == 1:
-        GuessingGame.get_score_v1()
-    elif alg_number == 2:
-        GuessingGame.get_score_v2()
-    else:
+    try:
+        alg_number = int(alg_number.strip('.'))
+        if alg_number == 1:
+            GuessingGame.get_score_v1()
+        elif alg_number == 2:
+            GuessingGame.get_score_v2()
+        else:
+            try_again()
+    except:
         try_again()
 
 def interact(alg_number=None):
