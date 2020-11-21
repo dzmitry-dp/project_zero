@@ -2,7 +2,7 @@ from example import *
 
 
 def write_wrapper(func):
-    '''Оборачиваю результат моей работы'''
+    '''Оборачиваю в текст результат моей работы'''
     def wrapper(self):
         with open('readme.md') as file:
             print('\n')
@@ -12,7 +12,6 @@ def write_wrapper(func):
                 if 'example.py' in s or 'algorithm.py' in s:
                     print(s)
             func(self)
-            print('\n')
             print(sentences[-1])
     return wrapper
 
@@ -40,11 +39,13 @@ class GuessingGame:
                 predict -= (predict - min_border)//2
         return (count)
 
-    def get_score_v1(self):
+    @staticmethod
+    def get_score_v1():
         '''Узнаем, как быстро алгоритм угадывает число'''
         score_game(game_core_v1)
 
-    def get_score_v2(self):
+    @staticmethod
+    def get_score_v2():
         score_game(game_core_v2)
 
     @write_wrapper
