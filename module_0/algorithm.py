@@ -6,7 +6,7 @@ def write_wrapper(func):
     def wrapper(self):
         with open('readme.md') as file:
             print('\n')
-            print('Проект 0 состоит из:')
+            print('Проект_0 состоит из:')
             sentences = [sentence.rstrip() for sentence in file]
             for s in sentences:
                 if 'example.py' in s or 'algorithm.py' in s:
