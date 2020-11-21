@@ -5,7 +5,7 @@ def try_again():
     print('Не верно введенные данные! Попробуйте еще раз')
     interact()
 
-def print_my_algorithm():
+def choose_interaction_options():
     user_input = input('Хотите продолжить? (Y/n)\n')
     if user_input.lower() == 'y':
         alg_number = input('''Результат работы какого алгоритма вывести на экран?
@@ -28,7 +28,7 @@ def print_examples_algorithm(alg_number):
 
 def interact(alg_number=None):
     if alg_number == None:
-        print_my_algorithm()
+        choose_interaction_options()
     else:
         print_examples_algorithm(alg_number)
 
