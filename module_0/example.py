@@ -34,11 +34,5 @@ def score_game(game_core):
     for number in random_array:
         count_ls.append(game_core(number))
     score = int(np.mean(count_ls))
-    print(f"Этот алгоритм угадывает число в среднем за {score} попытки")
+    print(f"\nЭтот алгоритм угадывает число в среднем за {score} попытки")
     return(score)
-<<<<<<< HEAD:module_0/gtn.py
-
-
-score_game(game_core_v2)
-=======
->>>>>>> func:module_0/project_0.py
