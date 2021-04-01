@@ -2,13 +2,10 @@ import re
 import math
 import numpy as np
 import pandas as pd
+from datetime import datetime
 
 
 def format_str_values_to_list(text):
-    '''
-    Функция форматирует строку в список:
-    str("['European', 'French', 'International']") --> [European, French, International]
-    '''
     def replaces(text):
         rep = {"[": "", "]": "", "'": ""}
         rep = dict((re.escape(k), v) for k, v in rep.items())
@@ -28,6 +25,14 @@ class ConfigWrapper:
         self.final_data = self.raw_data.copy()
         # удаляю не нужные для модели признаки
         self.final_data.drop(['Restaurant_id','ID_TA',], axis = 1, inplace=True)
+        # обрабатываю каждый признак
+        self.processing_city()
+        self.processing_cuisine_style()
+        self.processing_ranking()
+        self.processing_price_range()
+        self.processing_number_of_reviews()
+        self.processing_reviews()
+        self.processing_url_ta()
 
     def processing_city(self):
         self.final_data = pd.get_dummies(self.final_data, columns=['City'], dummy_na=True)
@@ -44,7 +49,7 @@ class ConfigWrapper:
 
         # добавляем колонки для каждой кухни
         for elem in unique_cuisine_style:
-            self.final_data[elem] = pd.Series(np.zeros(len(df.index), dtype=int))
+            self.final_data[elem] = pd.Series(np.zeros(len(self.raw_data.index), dtype=int))
 
         # раставляем 1 в соответствующей колонке кухни
         explode_series = self.final_data['Cuisine Style'].explode()
@@ -57,6 +62,8 @@ class ConfigWrapper:
 
         # удаляю столбец Cuisine Style
         self.final_data = self.final_data.drop(columns='Cuisine Style')
+        # заполняем пропуски
+        self.final_data['Amount_Cuisine_Style'].fillna(self.final_data['Amount_Cuisine_Style'].mean(), inplace=True)
 
     def processing_ranking(self):
         pass
@@ -76,10 +83,15 @@ class ConfigWrapper:
                 return 3
 
         self.final_data['Price Range'] = self.final_data['Price Range'].apply(create_conditions_for_changes)
+        # заполняем пропуски
+        self.final_data['Price Range'].fillna(0, inplace=True)
+
 
     def processing_number_of_reviews(self):
         # фиксирую места пропусков информации
         self.final_data['Number_of_Reviews_isNAN'] = pd.isna(self.raw_data['Number of Reviews']).astype('uint8')
+        # заполняем пропуск
+        self.final_data['Number of Reviews'].fillna(0, inplace=True)
 
     def processing_reviews(self):
         # форматируем данные в удобные списки
@@ -87,17 +99,23 @@ class ConfigWrapper:
                                                 .apply(format_str_values_to_list)
         # фиксирую места пропусков информации
         self.final_data['Reviews_isNAN'] = pd.isna(self.raw_data['Reviews']).astype('uint8')
-
-        # создаю столбец "Количество отзывов". Норма =2. None =0
-        self.final_data['Amount_Reviews'] = self.final_data['Reviews'].str.len()
-        self.final_data['Amount_Reviews'].fillna(0, inplace=True)
-
-        # вычислить время между двумя отзывами. В данных предоставлены последние 2 отзыва, на тот момент
-        # отзывы которые написаны КАПСОМ
+        # количество БОЛЬШИХ букв в 2х отзывах
+        self.final_data['Caps_Reviews'] = self.final_data['Reviews'].apply(Reviews.find_number_of_caps)
+        # серия состоящая из списков в которых 2 даты публикации 2х последний отзывов
+        self.raw_data['Reviews_Date'] = self.final_data['Reviews'].apply(Reviews.get_date_from_reviews)
+        # время в сутках между публикациями отзывов
+        self.final_data['Span_Reviews'] = self.raw_data['Reviews_Date'].apply(Reviews.get_days_between_reviews)
+        # удаляю столбец Reviews
+        self.final_data = self.final_data.drop(columns='Reviews')
+        # заполняем пропуск
+        self.final_data['Span_Reviews'].fillna(0, inplace=True)
+        self.final_data['Caps_Reviews'].fillna(self.final_data['Caps_Reviews'].mean(), inplace=True)
 
     def processing_url_ta(self):
         # выделить уникальные части ссылки. Ссылка состоит из 2х частей: Название ресторана - Место
-        pass
+        self.raw_data['Unique_URL_Part'] = self.raw_data['URL_TA'].apply(Url.get_unique_link_part)
+        # удаляю столбец URL_TA
+        self.final_data = self.final_data.drop(columns='URL_TA')
 
 
 class CuisineStyle:
@@ -110,15 +128,42 @@ class CuisineStyle:
         return list(cuisine)
 
 
+class Reviews:
+    def get_date_from_reviews(reviews_list):
+        reviews_date_list = []
+        if reviews_list != None:
+            for value in reviews_list[-2:]:
+                try:
+                    reviews_date_list.append(datetime.strptime(value, '%m/%d/%Y'))
+                except:
+                    continue
+            return reviews_date_list
+
+    def get_days_between_reviews(reviews_date):
+        if reviews_date != None:
+            if len(reviews_date) == 2:
+                delta = reviews_date[0] - reviews_date[1]
+            elif len(reviews_date) == 1:
+                return None
+            return delta.days
+
+    def find_number_of_caps(reviews_list):
+        if reviews_list != None:
+            caps_list = []
+            for elem in reviews_list:
+                caps = [l for l in elem if l.isupper()]
+                if len(caps) != 0:
+                    caps_list += caps
+            return len(caps_list)
+
+
+class Url:
+    def get_unique_link_part(str_link):
+        parts = str_link.replace('.html', '').split('-')
+        return parts[-2:]
+
 if __name__ == '__main__':
     pd.set_option('display.max_columns', None)
     df = pd.read_csv('main_task.xls')
     df_obj = ConfigWrapper(df)
-    df_obj.processing_city()
-    df_obj.processing_cuisine_style()
-    df_obj.processing_ranking()
-    df_obj.processing_price_range()
-    df_obj.processing_number_of_reviews()
-    df_obj.processing_reviews()
-    df_obj.processing_url_ta()
 
