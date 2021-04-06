@@ -54,16 +54,16 @@ class ConfigWrapper:
         self.processing_url_ta() # URL_TA — URL страницы ресторана на TripAdvisor
         self.processing_id_ta() # ID_TA — идентификатор ресторана в базе данных TripAdvisor.
 
-        # self.final_data.drop(columns='Restaurant_id', inplace=True) # удаляю столбец Restaurant_id
+        self.final_data.drop(columns='Restaurant_id', inplace=True) # удаляю столбец Restaurant_id
         # # self.final_data.drop(columns='City', inplace=True) # удаляю столбец City
         self.final_data.drop(columns='Cuisine Style', inplace=True) # удаляю столбец Cuisine Style
         # # self.final_data = self.final_data.drop(columns='Ranking') # удаляю столбец Ranking
-        # # self.final_data = self.final_data.drop(columns='Price Range') # удаляю столбец
+        # # self.final_data = self.final_data.drop(columns='Price Range') # удаляю столбец Price Range
         # # self.final_data = self.final_data.drop(columns='Number of Reviews') # удаляю столбец Number of Reviews
         self.final_data.drop(columns='Reviews', inplace=True) # удаляю столбец Reviews
         self.final_data.drop(columns='URL_TA', inplace=True)# удаляю столбец URL_TA
         self.final_data.drop(columns='ID_TA', inplace=True) # удаляю столбец ID_TA
-        # self.final_data.drop(columns='City_Rome', inplace=True) # признак сильно коррелирует с Median_Number_of_Reviews_by_City
+        # # self.final_data.drop(columns='City_Rome', inplace=True) # признак сильно коррелирует с Median_Number_of_Reviews_by_City
 
     def processing_restaurant_id(self):
         # приводим id к числовому формату
@@ -76,10 +76,10 @@ class ConfigWrapper:
     def processing_city(self):
         big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
         self.final_data = pd.get_dummies(self.final_data, columns=['City'], dummy_na=True, dtype='int64')
-        # рестораны в небольших городах 1, в крупных 0
-        for idx in self.raw_data['City'].index:
-            if self.raw_data['City'].iloc[idx] not in big_cities:
-                self.final_data.at[idx, 'City_nan'] = 1
+        # City_nan - рестораны в небольших городах 1, в крупных 0
+        self.final_data['City_nan'] = 1
+        for city in big_cities:
+            self.final_data.loc[self.raw_data[self.raw_data['City'] == city].index, 'City_nan'] = 0
 
     def processing_cuisine_style(self):
         # форматируем данные в столбце
@@ -100,14 +100,13 @@ class ConfigWrapper:
                 self.final_data['Average_Number_of_Kitchens_Restaurant_Chain'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
         # создаем список из уникальных стилей кухонь, присутствующих в датафрейме
         unique_cuisine_style = CuisineStyle.get_unique_values_cuisine_style(self.final_data['Cuisine Style'])
-        # добавляем колонки для каждой кухни
+        # добавляем колонки для каждой кухни, чтобы потом не париться заполняя пропуски
         for elem in unique_cuisine_style:
-            self.final_data[elem] = pd.Series(np.zeros(len(self.raw_data.index), dtype=int))
+            self.final_data[elem.replace(' ', '_')] = pd.Series(np.zeros(len(self.raw_data.index), dtype=int))
         # раставляем 1 в соответствующей колонке кухни
-        explode_series = self.final_data['Cuisine Style'].explode()
+        explode_frame = self.final_data.explode('Cuisine Style')
         for cuisine in unique_cuisine_style:
-            for index_ in explode_series.loc[explode_series.isin([cuisine])].index.values:
-                self.final_data.at[index_, cuisine] = 1
+            self.final_data.loc[explode_frame[explode_frame['Cuisine Style'].isin([cuisine])].index, cuisine.replace(' ', '_')] = 1
 
     def processing_ranking(self):
         # удаляем выбросы
