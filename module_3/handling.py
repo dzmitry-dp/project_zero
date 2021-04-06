@@ -24,16 +24,16 @@ class ConfigWrapper:
         self.final_data = self.raw_data.copy()
         # зафиксирую где отсутствует информация
         # self.final_data['Cuisine_Style_isNAN'] = pd.isna(self.raw_data['Cuisine Style']).astype('int64')
-        self.final_data['Price_Range_isNAN'] = pd.isna(self.raw_data['Price Range']).astype('int64')
+        # self.final_data['Price_Range_isNAN'] = pd.isna(self.raw_data['Price Range']).astype('int64')
         # self.final_data['Reviews_isNAN'] = pd.isna(self.raw_data['Reviews']).astype('int64')
         # обрабатываю каждый признак
         self.processing_ranking() # до обработки id, т.к. заполняю средним по сети ресторанов
-        self.processing_restaurant_id()
         self.processing_cuisine_style()
         self.processing_price_range()
         self.processing_reviews()
         self.processing_number_of_reviews()
         self.processing_city() # после cuisine style, price range и number of reviews, т.к. заполняем средним по городам
+        self.processing_restaurant_id()
         self.processing_url_ta()
         self.processing_id_ta() # ?первым обрабатываю признак ID_TA т.к. есть дублирующая информация
 
@@ -41,47 +41,47 @@ class ConfigWrapper:
         # приводим id к числовому формату
         self.final_data['Restaurant_id'] = self.raw_data['Restaurant_id'].apply(lambda x: int(x.replace('id_', '')))
         # выделяем отдельным признаком средний рейтинг сети ресторанов
-        self.final_data['Average_Rating_Series_Restaurant'] = self.final_data['Restaurant_id'].apply(lambda x: round(self.final_data.Rating[self.final_data.Restaurant_id == x].mean(), 1))
+        self.final_data['Average_Rating_Restaurant_Chain'] = self.final_data['Restaurant_id'].apply(lambda x: self.final_data['Rating'][self.final_data['Restaurant_id'] == x].mean())
         # удаляю столбец Restaurant_id
         self.final_data = self.final_data.drop(columns='Restaurant_id')
 
     def processing_city(self):
-        # big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Milan']
-        big_cities_data = pd.get_dummies(self.final_data[
-                                            (self.final_data['City'] == 'London') |\
-                                            (self.final_data['City'] == 'Paris') |\
-                                            (self.final_data['City'] == 'Madrid') |\
-                                            (self.final_data['City'] == 'Barcelona') |\
-                                            (self.final_data['City'] == 'Berlin') |\
-                                            (self.final_data['City'] == 'Milan')
-                                            ], columns=['City'], dummy_na=True, dtype='int64')
-        self.final_data = self.final_data.merge(big_cities_data, how='left') 
-        # удаляем дубликаты
-        self.final_data.drop_duplicates(inplace=True)
-        # представители малых городов 0, крупные города 1
-        self.final_data['City_London'].fillna(0, inplace=True)
-        self.final_data['City_Paris'].fillna(0, inplace=True)
-        self.final_data['City_Madrid'].fillna(0, inplace=True)
-        self.final_data['City_Barcelona'].fillna(0, inplace=True)
-        self.final_data['City_Berlin'].fillna(0, inplace=True)
-        self.final_data['City_Milan'].fillna(0, inplace=True)
+        big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
+        # max_rating = ['London', 'Paris', 'Berlin', 'Barcelona', 'Rome', 'Madrid', 'Prague', 'Lisbon', 'Vienna', 'Amsterdam']
+        # min_rating = ['London', 'Madrid', 'Paris', 'Barcelona', 'Milan', 'Prague', 'Berlin', 'Budapest', 'Hamburg', 'Vienna']
+        
+        self.final_data = pd.get_dummies(self.final_data, columns=['City'], dummy_na=True, dtype='int64')
         # рестораны в небольших городах 1, в крупных 0
-        self.final_data['City_nan'].fillna(1, inplace=True)
+        for idx in self.raw_data['City'].index:
+            if self.raw_data['City'].iloc[idx] not in big_cities:
+                self.final_data.at[idx, 'City_nan'] = 1
+        # self.final_data['City_nan'][
+        #     (self.raw_data['City'] != 'London') &\
+        #     (self.raw_data['City'] != 'Paris') &\
+        #     (self.raw_data['City'] != 'Madrid') &\
+        #     (self.raw_data['City'] != 'Barcelona') &\
+        #     (self.raw_data['City'] != 'Berlin') &\
+        #     (self.raw_data['City'] != 'Rome')
+        #     ] = 1
         # удаляю столбец City
-        self.final_data = self.final_data.drop(columns='City')
+        # self.final_data = self.final_data.drop(columns='City')
 
     def processing_cuisine_style(self):
         # форматируем данные в столбце
         self.final_data['Cuisine Style'] = self.final_data['Cuisine Style']\
                                                 .apply(format_str_values_to_list)
-        # копирую столбец для удобства обращения
+        # копирую столбец в сырые данные для удобства обращения
         self.raw_data['Cuisine Style'] = self.final_data['Cuisine Style'].copy()
         # создаю столбец "Количество кухонь в одном ресторане"
         self.final_data['Amount_Cuisine_Style'] = self.final_data['Cuisine Style'].str.len()
+        # создаю признак "Среднее количество кухонь в сети ресторанов"
+        self.final_data['Average_Number_of_Kitchens_Restaurant_Chain'] = self.final_data['Restaurant_id'].apply(lambda x: self.final_data['Amount_Cuisine_Style'][self.final_data['Restaurant_id'] == x].mean())
         # заполняем пропуски средним значением ресторанов такого же рейтинга
-        for idx in self.final_data[self.final_data['Amount_Cuisine_Style'].isnull()].index:
-            self.final_data.at[idx, 'Amount_Cuisine_Style'] = round(self.final_data['Amount_Cuisine_Style'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
- 
+        for idx in self.final_data.loc[pd.isna(self.final_data['Amount_Cuisine_Style']), :].index:
+            self.final_data.at[idx, 'Amount_Cuisine_Style'] = self.final_data['Amount_Cuisine_Style'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
+        # заполняем пропуски средним значением ресторанов такого же рейтинга
+        for idx in self.final_data.loc[pd.isna(self.final_data['Average_Number_of_Kitchens_Restaurant_Chain']), :].index:
+            self.final_data.at[idx, 'Average_Number_of_Kitchens_Restaurant_Chain'] = self.final_data['Average_Number_of_Kitchens_Restaurant_Chain'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
         # создаем список из уникальных стилей кухонь, присутствующих в датафрейме
         unique_cuisine_style = CuisineStyle.get_unique_values_cuisine_style(self.final_data['Cuisine Style'])
         # добавляем колонки для каждой кухни
@@ -101,17 +101,13 @@ class ConfigWrapper:
 
     def processing_ranking(self):
         # удаляем выбросы
-        # mean = self.raw_data['Ranking'][self.raw_data['Rating'] == 5].mean()
-        mean = self.raw_data['Ranking'][self.raw_data['Rating'] == 5].mean()
-        # sigma = mean + 3*self.raw_data['Ranking'][self.raw_data['Rating'] == 5].std()
-        sigma = mean + 3*self.raw_data['Ranking'][self.raw_data['Rating'] == 5].std()
+        mean = self.raw_data['Ranking'].mean()
+        sigma = mean + 3*self.raw_data['Ranking'].std()
         self.final_data['Ranking'] = self.final_data['Ranking'].apply(lambda x: None if x > sigma else x)
-        # заполняем пропуски средним значением сети ресторанов
-        # for idx in self.final_data[self.final_data['Ranking'].isnull()].index:
-        #     self.final_data.at[idx, 'Ranking'] = self.final_data['Ranking'][self.final_data['Restaurant_id'] == self.final_data['Restaurant_id'].iloc[idx]].median()
-
-        for idx in self.final_data[self.final_data['Ranking'].isnull()].index:
+        # заполняем пропуски средним значением ресторанов c таким же рейтингом
+        for idx in self.final_data.loc[pd.isna(self.final_data['Ranking']), :].index:
             self.final_data.at[idx, 'Ranking'] = self.final_data['Ranking'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
+
         # self.final_data['Ranking'].fillna(self.final_data['Ranking'].median(), inplace=True)
         # удаляю столбец Ranking
         # self.final_data = self.final_data.drop(columns='Ranking')
@@ -119,8 +115,9 @@ class ConfigWrapper:
     def processing_price_range(self):
         # Для некоторых алгоритмов МЛ даже для не категориальных 
         # признаков можно применить One-Hot Encoding, и это может улучшить качество модели. Пробуйте разные подходы к кодированию признака - никто не знает заранее, что может взлететь.
-        self.final_data['Price Range'] = pd.get_dummies(self.final_data, columns=['Price Range'], dummy_na=True, dtype='int64')
-        
+        self.final_data = pd.get_dummies(self.final_data, columns=['Price Range'], dummy_na=True, dtype='int64')
+        self.final_data.rename(columns={'Price Range_$': 'Low_Price_Range', 'Price Range_$$ - $$$': 'Middle_Price_Range', 'Price Range_$$$$': 'High_Price_Range'}, inplace=True)
+
         def create_conditions_for_changes(data):
             if pd.isna(data):
                 pass
@@ -131,21 +128,33 @@ class ConfigWrapper:
             elif data == '$$$$':
                 return 3
 
-        self.final_data['Price Range'] = self.raw_data['Price Range'].apply(create_conditions_for_changes)
-        # заполняем пропуски срезним значение цен по городам
-        for idx in self.final_data[self.final_data['Price Range'].isnull()].index:
-            self.final_data.at[idx, 'Price Range'] = round(self.final_data['Price Range'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
+        self.raw_data['Price Range'] = self.raw_data['Price Range'].apply(create_conditions_for_changes)
+        # заполняем пропуски срезним значение цен по рейтингу
+        for idx in self.raw_data.loc[pd.isna(self.raw_data['Price Range']), :].index:
+            self.raw_data.at[idx, 'Price Range'] = round(self.raw_data['Price Range'][self.raw_data['Rating'] == self.raw_data['Rating'].iloc[idx]].mean())
+        # создаю признак средняя ценовая категория у сети ресторанов
+        self.final_data['Max_Price_Range_Series_Restaurant'] = self.raw_data['Restaurant_id']\
+                                                                        .apply(lambda x: self.raw_data['Price Range'][self.raw_data['Restaurant_id'] == x].max())
+        self.final_data['Min_Price_Range_Series_Restaurant'] = self.raw_data['Restaurant_id']\
+                                                                        .apply(lambda x: self.raw_data['Price Range'][self.raw_data['Restaurant_id'] == x].min())
+        
+        # среднее значение ценовой категории в зависимости от города
+        self.final_data['Average_Price_Range_by_City'] = self.raw_data['City']\
+                                                                        .apply(lambda x: self.raw_data['Price Range'][self.raw_data['City'] == x].mean())
         # удаляю столбец
         # self.final_data = self.final_data.drop(columns='Price Range')
 
     def processing_number_of_reviews(self):
+        # медианное значение количества отзывов по городам
+        self.final_data['Average_City_Number_of_Reviews'] = self.final_data['City'].apply(lambda x: self.final_data['Number of Reviews'][self.final_data['City'] == x].median())
         # удаляем выбросы
         mean = self.raw_data['Number of Reviews'].mean()
         sigma = mean + 3*self.raw_data['Number of Reviews'].std()
         self.final_data['Number of Reviews'] = self.final_data['Number of Reviews'].apply(lambda x: None if x > sigma else x)
-        # заполняем пропуски средним значением по городам
-        for idx in self.final_data[self.final_data['Number of Reviews'].isnull()].index:
-            self.final_data.at[idx, 'Number of Reviews'] = round(self.final_data['Number of Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
+        # заполняем пропуски средним значением по рейтингу
+        # for idx in self.final_data.loc[pd.isna(self.final_data['Number of Reviews']), :].index:
+        #     self.final_data.at[idx, 'Number of Reviews'] = round(self.raw_data['Number of Reviews'][self.raw_data['Rating'] == self.raw_data['Rating'].iloc[idx]].mean())
+        self.final_data['Number of Reviews'].fillna(self.final_data['Number of Reviews'].mean(), inplace=True)
         # удаляю столбец Number of Reviews
         # self.final_data = self.final_data.drop(columns='Number of Reviews')
 
@@ -167,17 +176,19 @@ class ConfigWrapper:
         # заполняем пропуски
         # self.final_data['Span_Reviews'].fillna(round(self.final_data['Span_Reviews'].mean()), inplace=True)
         # заполняем пропуски средним значением по городам
-        for idx in self.final_data[self.final_data['Span_Reviews'].isnull()].index:
-            self.final_data.at[idx, 'Span_Reviews'] = round(self.final_data['Span_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
-        for idx in self.final_data[self.final_data['Caps_Reviews'].isnull()].index:
-            self.final_data.at[idx, 'Caps_Reviews'] = round(self.final_data['Caps_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
+        for idx in self.final_data.loc[pd.isna(self.final_data['Span_Reviews']), :].index:
+            self.final_data.at[idx, 'Span_Reviews'] = self.final_data['Span_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
+        for idx in self.final_data.loc[pd.isna(self.final_data['Caps_Reviews']), :].index:
+            self.final_data.at[idx, 'Caps_Reviews'] = self.final_data['Caps_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
         # self.final_data['Caps_Reviews'].fillna(round(self.final_data['Caps_Reviews'].mean()), inplace=True)
         # удаляю столбец Reviews
         self.final_data = self.final_data.drop(columns='Reviews')
 
     def processing_url_ta(self):
         # выделить уникальные части ссылки. Ссылка состоит из 2х частей: Название ресторана - Место
-        # self.raw_data['Unique_URL_Part'] = self.raw_data['URL_TA'].apply(Url.get_unique_link_part)
+        self.raw_data['Unique_URL_Part'] = self.raw_data['URL_TA'].apply(Url.get_unique_link_part)
+        # количество символов в названии ресторана
+        self.final_data['Number_of_Characters_in_the_Name'] = self.raw_data['Unique_URL_Part'].apply(lambda x: len(''.join(x[0].split('_'))))
         # удаляю столбец URL_TA
         self.final_data = self.final_data.drop(columns='URL_TA')
 
@@ -207,7 +218,7 @@ class CuisineStyle:
                 for elem in list_:
                     cuisine.add(elem)
         return list(cuisine)
-
+     
 
 class Reviews:
     def get_date_from_reviews(reviews_list, arg):
