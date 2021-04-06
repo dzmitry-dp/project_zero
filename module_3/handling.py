@@ -37,6 +37,8 @@ class ConfigWrapper:
         self.processing_url_ta()
         self.processing_id_ta() # ?первым обрабатываю признак ID_TA т.к. есть дублирующая информация
 
+        self.final_data = self.final_data.drop(columns='City_Rome') # признак сильно коррелирует с Median_Number_of_Reviews_by_City
+
     def processing_restaurant_id(self):
         # приводим id к числовому формату
         self.final_data['Restaurant_id'] = self.raw_data['Restaurant_id'].apply(lambda x: int(x.replace('id_', '')))
@@ -146,7 +148,7 @@ class ConfigWrapper:
 
     def processing_number_of_reviews(self):
         # медианное значение количества отзывов по городам
-        self.final_data['Average_City_Number_of_Reviews'] = self.final_data['City'].apply(lambda x: self.final_data['Number of Reviews'][self.final_data['City'] == x].median())
+        self.final_data['Median_Number_of_Reviews_by_City'] = self.final_data['City'].apply(lambda x: self.final_data['Number of Reviews'][self.final_data['City'] == x].median())
         # удаляем выбросы
         mean = self.raw_data['Number of Reviews'].mean()
         sigma = mean + 3*self.raw_data['Number of Reviews'].std()
