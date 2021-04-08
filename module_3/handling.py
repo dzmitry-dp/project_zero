@@ -99,8 +99,9 @@ class ConfigWrapper:
             if id_counts['Restaurant_Counts'][id_counts['Restaurant_id'] == idx].values[0] > 1: # если сеть ресторанов (> 1 ресторана)
                 work_data = self.final_data[(self.final_data['Restaurant_id'].isin([idx, ]))]
                 self.final_data.loc[work_data.index, 'Average_Rating_Restaurant_Chain'] = id_counts['Mean_Rating'][id_counts['Restaurant_id'] == idx].values[0]
-            else:
-                self.final_data.loc[work_data.index, 'Average_Rating_Restaurant_Chain'] = one_restaurant.mean()
+        
+        # рестораны который не в сети
+        self.final_data['Average_Rating_Restaurant_Chain'].fillna(one_restaurant.mean(), inplace=True)
 
     def processing_city(self):
         big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
