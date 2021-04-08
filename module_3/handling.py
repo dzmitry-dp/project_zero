@@ -85,24 +85,22 @@ class ConfigWrapper:
         # # self.final_data.drop(columns='City_Rome', inplace=True) # признак сильно коррелирует с Median_Number_of_Reviews_by_City
 
     def processing_restaurant_id(self):
-        # приводим id к числовому формату
-        # self.final_data['Restaurant_id'] = self.raw_data['Restaurant_id']\
-        #                                         .apply(lambda x: int(x.replace('id_', '')))
         id_counts = self.final_data['Restaurant_id'].value_counts()\
                                                         .rename_axis('Restaurant_id')\
                                                             .reset_index(name='Restaurant_Counts')
         id_counts['Mean_Rating'] = id_counts['Restaurant_id']\
                                         .apply(lambda x : self.final_data['Rating'][self.final_data['Restaurant_id'] == x].mean())
+        self.id_counts_test = id_counts
         one_restaurant = id_counts['Mean_Rating'][id_counts['Restaurant_Counts'] == 1] # значения рейтинга для ресторанов "одиночек" (= 1 ресторан)
         # отдельным признаком выделяем средний рейтинг сети ресторанов (Average_Rating_Restaurant_Chain)
         for idx in id_counts['Restaurant_id'].values:
-            if id_counts['Restaurant_Counts'][id_counts['Restaurant_id'] == idx].values[0] > 1: # если сеть ресторанов (> 1 ресторана)
-                work_data = self.final_data[(self.final_data['Restaurant_id'].isin([idx, ]))]
+            work_data = self.final_data[self.final_data['Restaurant_id'].isin([idx, ])]
+            number_of_restaurants = id_counts['Restaurant_Counts'][id_counts['Restaurant_id'] == idx].values[0]
+            if  number_of_restaurants > 1: # если сеть ресторанов (> 1 ресторана)
                 self.final_data.loc[work_data.index, 'Average_Rating_Restaurant_Chain'] = id_counts['Mean_Rating'][id_counts['Restaurant_id'] == idx].values[0]
+            else:
+                self.final_data.loc[work_data.index.values[0], 'Average_Rating_Restaurant_Chain'] = one_restaurant.mean()
         
-        # рестораны который не в сети
-        self.final_data['Average_Rating_Restaurant_Chain'].fillna(one_restaurant.mean(), inplace=True)
-
     def processing_city(self):
         big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
         self.final_data = pd.get_dummies(self.final_data, columns=['City'], dummy_na=True, dtype='int64')
