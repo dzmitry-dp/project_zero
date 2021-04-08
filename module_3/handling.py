@@ -55,14 +55,23 @@ class ConfigWrapper:
         self.final_data = self.raw_data.copy()
         # обрабатываю каждый признак
         self.processing_restaurant_id() # Restaurant_id — идентификационный номер ресторана/сети ресторанов
+        print('10% ...')
         self.processing_city() # City — город, в котором находится ресторан
+        print('20% ...')
         self.processing_cuisine_style() # Cuisine Style — кухня или кухни, к которым можно отнести блюда, предлагаемые в ресторане
+        print('30% ...')
         self.processing_ranking() # Ranking — место, которое занимает данный ресторан среди всех ресторанов своего города
+        print('40% ...')
         self.processing_price_range() # Price Range — диапазон цен в ресторане
+        print('50% ...')
         self.processing_number_of_reviews() # Number of Reviews — количество отзывов о ресторане
+        print('60%...')
         self.processing_reviews() # Reviews — данные о двух отзывах, которые отображаются на сайте ресторана
+        print('70% ...')
         self.processing_url_ta() # URL_TA — URL страницы ресторана на TripAdvisor
+        print('80% ...')
         self.processing_id_ta() # ID_TA — идентификатор ресторана в базе данных TripAdvisor.
+        print('90% ...')
 
         self.final_data.drop(columns='Restaurant_id', inplace=True) # удаляю столбец Restaurant_id
         # # self.final_data.drop(columns='City', inplace=True) # удаляю столбец City
@@ -77,11 +86,21 @@ class ConfigWrapper:
 
     def processing_restaurant_id(self):
         # приводим id к числовому формату
-        self.final_data['Restaurant_id'] = self.raw_data['Restaurant_id']\
-                                                .apply(lambda x: int(x.replace('id_', '')))
-        # выделяем отдельным признаком средний рейтинг сети ресторанов
-        self.final_data['Average_Rating_Restaurant_Chain'] = self.final_data['Restaurant_id']\
-                                                                    .apply(lambda x: self.final_data['Rating'][self.final_data['Restaurant_id'] == x].mean())
+        # self.final_data['Restaurant_id'] = self.raw_data['Restaurant_id']\
+        #                                         .apply(lambda x: int(x.replace('id_', '')))
+        id_counts = self.final_data['Restaurant_id'].value_counts()\
+                                                        .rename_axis('Restaurant_id')\
+                                                            .reset_index(name='Restaurant_Counts')
+        id_counts['Mean_Rating'] = id_counts['Restaurant_id']\
+                                        .apply(lambda x : self.final_data['Rating'][self.final_data['Restaurant_id'] == x].mean())
+        one_restaurant = id_counts['Mean_Rating'][id_counts['Restaurant_Counts'] == 1] # значения рейтинга для ресторанов "одиночек" (= 1 ресторан)
+        # отдельным признаком выделяем средний рейтинг сети ресторанов (Average_Rating_Restaurant_Chain)
+        for idx in id_counts['Restaurant_id'].values:
+            if id_counts['Restaurant_Counts'][id_counts['Restaurant_id'] == idx].values[0] > 1: # если сеть ресторанов (> 1 ресторана)
+                work_data = self.final_data[(self.final_data['Restaurant_id'].isin([idx, ]))]
+                self.final_data.loc[work_data.index, 'Average_Rating_Restaurant_Chain'] = id_counts['Mean_Rating'][id_counts['Restaurant_id'] == idx].values[0]
+            else:
+                self.final_data.loc[work_data.index, 'Average_Rating_Restaurant_Chain'] = one_restaurant.mean()
 
     def processing_city(self):
         big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
