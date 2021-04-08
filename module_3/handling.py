@@ -4,6 +4,16 @@ import pandas as pd
 from datetime import datetime
 
 
+def find_anomalies(random_data):
+    random_data_std = random_data.std()
+    random_data_mean = random_data.mean()
+    anomaly_cut_off = random_data_std * 3
+    
+    lower_limit  = random_data_mean - anomaly_cut_off 
+    upper_limit = random_data_mean + anomaly_cut_off
+    
+    return random_data[(random_data > upper_limit) | (random_data < lower_limit)]
+
 def reviews_decor(func): # для колонки Reviews
     def wrapper(*args, **kwargs):
         if args[0] == '[[], []]':
@@ -142,16 +152,23 @@ class ConfigWrapper:
                                                                 .apply(lambda x: self.raw_data['Price Range'][self.raw_data['City'] == x].mean())
 
     def processing_number_of_reviews(self):
+        # Данные принимают очень широкий диапазон значений
+        # применим логорифмирование к переменной Number of Reviews
+        log_number_of_reviews = np.log(self.raw_data['Number of Reviews'][~pd.isna(self.raw_data['Number of Reviews'])])
+        anomalies = find_anomalies(log_number_of_reviews)
+        # сохраним информацию о выбросах
+        anomalies_series = self.final_data['Number of Reviews'].iloc[anomalies.index]
+        self.final_data['outliers_Number_of_Reviews'] = self.final_data['Number of Reviews'].isin(anomalies_series.values).astype('int')
+
+        # удаляю выбросы
+        self.final_data.loc[self.final_data['outliers_Number_of_Reviews'] == 1, 'Number of Reviews'] = None
+        # заполняем пропуски средним значением среди ресторанов с рейтингами 1, 1.5, 2, 2.5, 3, 5
+        mean_number = self.final_data['Number of Reviews'][~self.final_data['Rating'].isin([3.5, 4, 4.5])].mean()
+        self.final_data['Number of Reviews'] = self.final_data['Number of Reviews'].fillna(mean_number)
+
         # медианное значение количества отзывов по городам
         self.final_data['Median_Number_of_Reviews_by_City'] = self.raw_data['City']\
                                                                     .apply(lambda x: self.raw_data['Number of Reviews'][self.raw_data['City'] == x].median())
-        # удаляем выбросы
-        mean = self.raw_data['Number of Reviews'].mean()
-        sigma = mean + 3*self.raw_data['Number of Reviews'].std()
-        self.final_data['Number of Reviews'] = self.final_data['Number of Reviews']\
-                                                    .apply(lambda x: None if x > sigma else x)
-        # заполняем пропуски медианным значением по признаку
-        self.final_data['Number of Reviews'].fillna(self.final_data['Number of Reviews'].median(), inplace=True)
 
     def processing_reviews(self):
         # форматируем данные в удобные списки
