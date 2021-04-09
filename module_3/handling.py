@@ -225,15 +225,12 @@ class ConfigWrapper:
         self.final_data['Span_Reviews'] = self.raw_data['First_Reviews_Date'] - self.raw_data['Second_Reviews_Date']
         self.final_data['Span_Reviews'] = self.final_data['Span_Reviews']\
                                                 .apply(Reviews.get_days_between_reviews)
-        # затираем выбросы
-        sigma = self.final_data['Span_Reviews'].mean() + 3*self.final_data['Span_Reviews'].std()
-        self.final_data['Span_Reviews'] = self.final_data['Span_Reviews']\
-                                                .apply(lambda x: None if x > sigma else x)
-        # заполняю пропуски средним значение у такого же рейтинга
-        for idx in self.final_data.loc[pd.isna(self.final_data['Span_Reviews']), :].index:
-            self.final_data.at[idx, 'Span_Reviews'] = self.final_data['Span_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
-        for idx in self.final_data.loc[pd.isna(self.final_data['Caps_Reviews']), :].index:
-            self.final_data.at[idx, 'Caps_Reviews'] = self.final_data['Caps_Reviews'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
+        # заполняю пропуски Span_Reviews средним значением у ресторанов рейтингом < 3
+        average_value = self.final_data['Span_Reviews'][self.final_data['Rating'] < 3].mean()
+        self.final_data['Span_Reviews'] = self.final_data['Span_Reviews'].fillna(average_value)
+
+        # заполняю пропуски Caps_Reviews средним значением 
+        self.final_data['Span_Reviews'] = self.final_data['Span_Reviews'].fillna(self.final_data['Caps_Reviews'].mean())
 
     def processing_url_ta(self):
         # выделить уникальные части ссылки. Ссылка состоит из 2х частей: Название ресторана - Место
