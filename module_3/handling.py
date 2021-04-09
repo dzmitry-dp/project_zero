@@ -56,11 +56,11 @@ class ConfigWrapper:
         # обрабатываю каждый признак
         self.processing_restaurant_id() # Restaurant_id — идентификационный номер ресторана/сети ресторанов
         print('10% ...')
-        self.processing_city() # City — город, в котором находится ресторан
+        self.processing_ranking() # Ranking — место, которое занимает данный ресторан среди всех ресторанов своего города
         print('20% ...')
         self.processing_cuisine_style() # Cuisine Style — кухня или кухни, к которым можно отнести блюда, предлагаемые в ресторане
         print('30% ...')
-        self.processing_ranking() # Ranking — место, которое занимает данный ресторан среди всех ресторанов своего города
+        self.processing_city() # City — город, в котором находится ресторан
         print('40% ...')
         self.processing_price_range() # Price Range — диапазон цен в ресторане
         print('50% ...')
@@ -102,12 +102,35 @@ class ConfigWrapper:
                 self.final_data.loc[work_data.index.values[0], 'Average_Rating_Restaurant_Chain'] = one_restaurant.mean()
         
     def processing_city(self):
+        unique_cities = self.raw_data['City'].value_counts()
+        countries = {
+            'London' : 'England', 'Paris' : 'France', 'Madrid' : 'Spain', 
+            'Barcelona' : 'Spain', 'Berlin' : 'Germany', 'Milan' : 'Italy', 
+            'Rome' : 'Italy', 'Prague' : 'Czech_c', 'Lisbon' : 'Portugal', 
+            'Vienna' : 'Austria', 'Amsterdam' : 'Holland', 
+            'Brussels' : 'Belgium', 'Hamburg' : 'Germany', 'Munich' : 'Germany', 
+            'Lyon' : 'France', 'Stockholm' : 'Sweden', 'Budapest' : 'Romania', 
+            'Warsaw' : 'Poland', 'Dublin' : 'Ireland', 'Copenhagen' : 'Denmark', 
+            'Athens' : 'Greece', 'Edinburgh' : 'Scotland', 'Zurich' : 'Switzerland', 
+            'Oporto' : 'Portugal', 'Geneva' : 'Switzerland', 'Krakow' : 'Poland', 
+            'Oslo' : 'Norway', 'Helsinki' : 'Finland', 'Bratislava' : 'Slovakia', 
+            'Luxembourg' : 'Luxembourg_c', 'Ljubljana' : 'Slovenia'
+        }
         big_cities = ['London', 'Paris', 'Madrid', 'Barcelona', 'Berlin', 'Rome']
-        self.final_data = pd.get_dummies(self.final_data, columns=['City'], dummy_na=True, dtype='int64')
-        # City_nan - рестораны в небольших городах 1, в крупных 0
-        self.final_data['City_nan'] = 1
+
+        # Big_City - рестораны в небольших городах 1, в крупных 0
+        self.final_data['Big_City'] = 1
         for city in big_cities:
-            self.final_data.loc[self.raw_data[self.raw_data['City'] == city].index, 'City_nan'] = 0
+            self.final_data.loc[self.raw_data[self.raw_data['City'] == city].index, 'Big_City'] = 0
+
+        # отдельным признаком выделим страны в которых находятся города
+        for city in unique_cities.index:
+            self.final_data.loc[self.final_data[self.final_data['City'] == city].index, 'Country'] = countries[city]   
+
+        #  закодируем признаки City и Country методом One-Hot Encoding
+        # для One-Hot Encoding в pandas есть готовая функция - get_dummies
+        self.final_data = pd.get_dummies(self.final_data, columns=['City'], dtype='int64')
+        self.final_data = pd.get_dummies(self.final_data, columns=['Country'], dtype='int64')
 
     def processing_cuisine_style(self):
         # форматируем данные в столбце
@@ -137,14 +160,12 @@ class ConfigWrapper:
             self.final_data.loc[explode_frame[explode_frame['Cuisine Style'].isin([cuisine])].index, cuisine.replace(' ', '_')] = 1
 
     def processing_ranking(self):
-        # удаляем выбросы
-        mean = self.raw_data['Ranking'].mean()
-        sigma = mean + 3*self.raw_data['Ranking'].std()
-        self.final_data['Ranking'] = self.final_data['Ranking']\
-                                            .apply(lambda x: None if x > sigma else x)
-        # заполняем пропуски средним значением ресторанов c таким же рейтингом
-        for idx in self.final_data.loc[pd.isna(self.final_data['Ranking']), :].index:
-            self.final_data.at[idx, 'Ranking'] = self.final_data['Ranking'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
+        unique_cities = self.raw_data['City'].value_counts()
+        mean_ranking_on_city = self.raw_data.groupby(['City'])['Ranking'].mean()
+        for city in unique_cities.index:
+            self.final_data.loc[self.final_data['City'] == city, 'Mean_Ranking_on_City'] = mean_ranking_on_city.loc[city]
+            self.final_data.loc[self.final_data['City'] == city, 'Count_Restorant_in_City'] = unique_cities.loc[city]
+        self.final_data['Norm_Ranking'] = (self.final_data['Ranking'] - self.final_data['Mean_Ranking_on_City']) / self.final_data['Count_Restorant_in_City']
 
     def processing_price_range(self):
         # примением One-Hot Encoding для этого признака
