@@ -124,13 +124,13 @@ class ConfigWrapper:
             self.final_data.loc[self.raw_data[self.raw_data['City'] == city].index, 'Big_City'] = 0
 
         # отдельным признаком выделим страны в которых находятся города
-        for city in unique_cities.index:
-            self.final_data.loc[self.final_data[self.final_data['City'] == city].index, 'Country'] = countries[city]   
+        # for city in unique_cities.index:
+        #     self.final_data.loc[self.final_data[self.final_data['City'] == city].index, 'Country'] = countries[city]   
 
         #  закодируем признаки City и Country методом One-Hot Encoding
         # для One-Hot Encoding в pandas есть готовая функция - get_dummies
         self.final_data = pd.get_dummies(self.final_data, columns=['City'], dtype='int64')
-        self.final_data = pd.get_dummies(self.final_data, columns=['Country'], dtype='int64')
+        # self.final_data = pd.get_dummies(self.final_data, columns=['Country'], dtype='int64')
 
     def processing_cuisine_style(self):
         # форматируем данные в столбце
@@ -177,7 +177,7 @@ class ConfigWrapper:
                                                 .apply(create_conditions_for_changes)
         # заполняем пропуски срезним значение цен по рейтингу
         for idx in self.final_data.loc[pd.isna(self.final_data['Price Range']), :].index:
-            self.final_data.at[idx, 'Price Range'] = round(self.final_data['Price Range'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean())
+            self.final_data.at[idx, 'Price Range'] = self.final_data['Price Range'][self.final_data['Rating'] == self.final_data['Rating'].iloc[idx]].mean()
         # создаю признак максимальная ценовая категория у сети ресторанов
         self.final_data['Max_Price_Range_Restaurant_Chain'] = self.final_data['Restaurant_id']\
                                                                     .apply(lambda x: self.final_data['Price Range'][self.final_data['Restaurant_id'] == x].max())
@@ -230,7 +230,7 @@ class ConfigWrapper:
         self.final_data['Span_Reviews'] = self.final_data['Span_Reviews'].fillna(average_value)
 
         # заполняю пропуски Caps_Reviews средним значением 
-        self.final_data['Span_Reviews'] = self.final_data['Span_Reviews'].fillna(self.final_data['Caps_Reviews'].mean())
+        self.final_data['Caps_Reviews'] = self.final_data['Caps_Reviews'].fillna(self.final_data['Caps_Reviews'].mean())
 
     def processing_url_ta(self):
         # выделить уникальные части ссылки. Ссылка состоит из 2х частей: Название ресторана - Место
@@ -241,8 +241,9 @@ class ConfigWrapper:
                                                                     .apply(lambda x: len(''.join(x[0].split('_'))))
 
     def processing_id_ta(self):
-        # удаляем дубли, которые имеют одинаковый id в базе даных
-        self.final_data = self.final_data.drop_duplicates(subset=['ID_TA'], keep='last')
+        # # удаляем дубли, которые имеют одинаковый id в базе даных
+        # self.final_data = self.final_data.drop_duplicates(subset=['ID_TA'], keep='last')
+        pass
 
 
 class CuisineStyle:
