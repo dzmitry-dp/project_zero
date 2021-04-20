@@ -8,3 +8,4 @@ _My first repository on GitHub, where I study at Data Science specialization cou
 > Track the impact of student living conditions on their math grades
 ## module_3
 > Preparing data for training the model
+> https://www.kaggle.com/dpaulenka/sf-tripadvisor-rating-prediction-dst-45
